@@ -135,7 +135,8 @@ $data = '<html xmlns="http://www.w3.org/1999/html"><head><title>TPCT Youtube Dow
        xhttp.onreadystatechange = function() {
        if (xhttp.readyState == 4 && xhttp.status == 200) {
          $data = JSON.parse(xhttp.responseText);
-         $urls = $data[0];
+         if ($data !="Please Enter Valid Youtube Video Url"){
+             $urls = $data[0];
          $datas = $urls["video data"];
          $div = document.createElement("div");
          $div.id = "video_info";
@@ -166,6 +167,12 @@ $data = '<html xmlns="http://www.w3.org/1999/html"><head><title>TPCT Youtube Dow
                      
                  }
              }
+         }
+         }else{
+             $div = document.createElement("div");
+                     $div.id = "res";
+                     $div.innerHTML = $data;
+                     $result.appendChild($div);
          }
         }
        };
