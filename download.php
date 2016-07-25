@@ -65,49 +65,92 @@ $curl_get_data = function($url=''){
     }else{return null;}
 };
 $youtube_url_checker = function ($url=''){
-    $rx = '~
+    if (filter_var($url, FILTER_VALIDATE_URL)){
+        $rx = '~
      ^(?:https?://)?
      (?:www\.)?
      (?:youtube\.com|youtu\.be)
      /watch\?v=([^&]+)
      ~x';
-    if (preg_match($rx, $url)){
-        return $url;
-    } else{
-        return null;
+        if (preg_match($rx, $url)){
+            return $url;
+        } else{
+            return null;
+        }
+    }
+    else{
+        $rx = '~
+     ^(?:https?://)?
+     (?:www\.)?
+     (?:youtube\.com|youtu\.be)
+     /watch\?v=([^&]+)
+     ~x';
+        if (preg_match($rx, $url)){
+            return $url;
+        } else{
+            if (strlen($url) >= 11){
+                return 'ID:'.$url;
+            }else{
+                return null;
+            }
+        }
     }
 };
 $youtube_video_id = function ($url = ''){
     global $youtube_url_checker;
     $url = $youtube_url_checker($url);
     if ($url){
-        $url = explode('?', $url)[1];
-        $url = explode('=', $url);
-        $url = $url[array_search('v', $url)+1];
-        if ($url){
+        if (strpos($url, 'ID:') !== false){
             return $url;
+        } else{
+            $url = explode('?', $url)[1];
+            $url = explode('=', $url);
+            $url = $url[array_search('v', $url)+1];
+            if ($url){
+                return explode('ID:',$url)[1];
+            }
+            else{
+                return null;
+            }
         }
-        else{
-            return null;
-        }
-    }    else{
+    }  else{
         return null;
     }
 };
 $json_full_info = function($url= ''){
     global $youtube_url_checker, $youtube_video_id, $curl_get_data;
     $url = $youtube_url_checker($url);
-    if ($url){
+    if (strpos($url,'ID:') !== false){
+        $data = $curl_get_data('http://www.youtube.com/oembed?url=https://www.youtube.com/watch?v='.explode('ID:',$url)[1].'&format=json');
+        if (strpos($data, 'Not Found') === false) {
+            $data = json_decode($data, true);
+            $image = explode('/', $data['thumbnail_url']);
+            $image = join('/', array_slice($image, 0, count($image) - 1, true)) . '/mqdefault.jpg';
+            $title = $data['title'];
+            $author_name = $data['author_name'];
+            $author_url = $data['author_url'];
+            $data = [];
+            $data = ['image' => $image, 'title' => $title, 'author_name' => $author_name, 'author_url' => $author_url];
+            return $data;
+        }else{
+            return null;
+        }
+    }
+    elseif (strpos($url,'ID:') === false){
         $data = $curl_get_data('http://www.youtube.com/oembed?url='.$url.'&format=json');
-        $data = json_decode($data, true);
-        $image = explode('/', $data['thumbnail_url']);
-        $image = join('/',array_slice($image,0,count($image)-1,true)).'/mqdefault.jpg';
-        $title = $data['title'];
-        $author_name = $data['author_name'];
-        $author_url = $data['author_url'];
-        $data = [];
-        $data =['image'=>$image,'title'=>$title,'author_name'=>$author_name,'author_url'=>$author_url];
-        return $data;
+        if (strpos($data, 'Not Found') === false) {
+            $data = json_decode($data, true);
+            $image = explode('/', $data['thumbnail_url']);
+            $image = join('/', array_slice($image, 0, count($image) - 1, true)) . '/mqdefault.jpg';
+            $title = $data['title'];
+            $author_name = $data['author_name'];
+            $author_url = $data['author_url'];
+            $data = [];
+            $data = ['image' => $image, 'title' => $title, 'author_name' => $author_name, 'author_url' => $author_url];
+            return $data;
+        }else{
+            return null;
+        }
     }
     else{
         return null;
@@ -116,6 +159,10 @@ $json_full_info = function($url= ''){
 $video_info = function($url = ''){
     global $youtube_url_checker, $youtube_video_id, $curl_get_data, $size, $file_size;
     $url = $youtube_video_id($youtube_url_checker($url));
+    if (strpos($url, 'ID:') !==false){
+        $url = explode('ID:', $url);
+        $url = $url[sizeof($url)-1];
+    }
     if ($url) {
         $url = 'http://www.youtube.com/get_video_info?&video_id=' . $url . '';
         $data = $curl_get_data($url);
@@ -171,11 +218,12 @@ $video_info = function($url = ''){
                 $i++;
             }
             return $avail_formats;
+        }else{
+            return 'Please Enter Valid Youtube Video Url';
         }
     }else{
         return null;
     }
-    return null;
 };
 $encryption = function($data= ''){
     $data = base64_encode($data);
@@ -279,7 +327,7 @@ $query_checker = function(){
     elseif(isset($_GET['get_vid'])){
         echo json_encode($parser($_GET['get_vid']));
     }else{
-        header('Location: /index.php');
+        header('Location: index.php');
     }
 };
 function receiver(){
