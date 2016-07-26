@@ -51,6 +51,7 @@ $curl_get_data = function($url=''){
         $user_agent = $_SERVER['HTTP_USER_AGENT'];
         if (function_exists('curl_init')) {
             $ch = curl_init();
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_POST, false);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -58,6 +59,7 @@ $curl_get_data = function($url=''){
             curl_setopt($ch, CURLOPT_USERAGENT, $user_agent);
             $data = curl_exec($ch);
             curl_copy_handle($ch);
+            curl_close($ch);
             return $data;
         }else{
             return null;
@@ -100,14 +102,14 @@ $youtube_video_id = function ($url = ''){
     global $youtube_url_checker;
     $url = $youtube_url_checker($url);
     if ($url){
-        if (strpos($url, 'ID:') !== false){
-            return $url;
-        } else{
+        if (strpos($url, 'ID:') === false){
             $url = explode('?', $url)[1];
             $url = explode('=', $url);
             $url = $url[array_search('v', $url)+1];
+            return $url;
+        } else{
             if ($url){
-                return explode('ID:',$url)[1];
+                return explode('ID:',$url)[sizeof(explode('ID:',$url))-1];
             }
             else{
                 return null;
@@ -219,7 +221,7 @@ $video_info = function($url = ''){
             }
             return $avail_formats;
         }else{
-            return 'Please Enter Valid Youtube Video Url';
+            return null;
         }
     }else{
         return null;
@@ -292,8 +294,47 @@ $parser = function($url = ''){
         return 'Please Enter Valid Youtube Video Url';
     }
 };
+$playlist_checker = function ($url= ''){
+    $rx = '~
+     ^(?:https?://)?
+     (?:www\.)?
+     (?:youtube\.com|youtu\.be)
+     (?:/watch\?v=([^&]+))?(&list=([^&]+))?
+     ~x';
+    if (preg_match($rx, $url)){
+        return $url;
+    }
+    elseif (strpos(strtolower($url), 'list') !== false){
+        return 'LIST:'.$url;
+    }
+    elseif (strlen($url) >= strlen('PLviB05QdPlXnjfrtrLBH-qj-9O9sUYfLT')){
+        return 'LIST:'.$url;
+    }
+    else{
+        return null;
+    }
+};
+$playlist = function($playlist_url){
+    global $playlist_checker, $curl_get_data;
+    $playlist_url = $playlist_checker($playlist_url);
+    if ($playlist_url){
+        if (strpos($playlist_url, "LIST:") !== false){
+            $playlist_url = explode('LIST:', $playlist_url)[1];
+            $playlist_url = 'https://www.youtube.com/playlist?list='.$playlist_url;
+        }
+        else{
+            parse_str($playlist_url, $main);
+            $playlist_url = $main['list'];
+        }
+        $playlist_url = 'https://www.youtube.com/playlist?list='. $playlist_url;
+        $data = $curl_get_data($playlist_url);
+        var_dump($data);
+    }else{
+        return "Please Enter Valid Playlist ID";
+    }
+};
 $query_checker = function(){
-    global $decryption, $size, $parser;
+    global $decryption, $size, $parser, $playlist, $playlist_checker;
     if (isset($_GET['get'])){
         $data = explode('&',$decryption($_GET['get']));
         $url = $decryption($data[0]);
@@ -326,7 +367,10 @@ $query_checker = function(){
     }
     elseif(isset($_GET['get_vid'])){
         echo json_encode($parser($_GET['get_vid']));
-    }else{
+    }
+    elseif(isset($_GET['get_playlist'])){}
+    else{
+         /*echo $playlist('https://www.youtube.com/watch?v=jZervxL950s&index=1&list=PLviB05QdPlXnjfrtrLBH-qj-9O9sUYfLT');*/
         header('Location: index.php');
     }
 };
